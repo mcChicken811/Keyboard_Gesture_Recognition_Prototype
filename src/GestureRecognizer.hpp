@@ -12,6 +12,7 @@ enum class Gesture : std::size_t {
     SWIPE_RIGHT,
     STIR,
     TRIANGLE,
+    W,
     COUNT
 };
 
@@ -25,7 +26,8 @@ public:
     using GestureData = std::array<std::vector<std::string>,
                                    static_cast<std::size_t>(Gesture::COUNT)>;
 
-    explicit GestureRecognizer(const std::string& csvPath);
+    // Reads Excel tab-delimited text with a Gesture<TAB>inputs header.
+    explicit GestureRecognizer(const std::string& dataPath);
 
     // Rows are indexed by Gesture; columns hold that gesture's input samples.
     const std::vector<std::string>& samples(Gesture gesture) const;

@@ -9,10 +9,10 @@ namespace {
 
 constexpr std::array<std::string_view, static_cast<std::size_t>(Gesture::COUNT)>
     gestureNames = {
-        "SWIPE_LEFT", "SWIPE_RIGHT", "STIR", "TRIANGLE"
+        "SWIPE_LEFT", "SWIPE_RIGHT", "STIR", "TRIANGLE", "W"
     };
 
-std::vector<std::string> parseCsvRow(const std::string& line) {
+std::vector<std::string> parseTsvRow(const std::string& line) {
     std::vector<std::string> fields;
     std::string field;
     bool quoted = false;
@@ -32,15 +32,15 @@ std::vector<std::string> parseCsvRow(const std::string& line) {
             } else {
                 field += c;
             }
-        } else if (c == ',') {
+        } else if (c == '\t') {
             fields.push_back(field);
             field.clear();
             quoteClosed = false;
         } else if (quoteClosed) {
-            throw std::runtime_error("Unexpected character after a quoted CSV field");
+            throw std::runtime_error("Unexpected character after a quoted TSV field");
         } else if (c == '"') {
             if (!field.empty()) {
-                throw std::runtime_error("Unexpected quote in a CSV field");
+                throw std::runtime_error("Unexpected quote in a TSV field");
             }
             quoted = true;
         } else {
@@ -49,7 +49,7 @@ std::vector<std::string> parseCsvRow(const std::string& line) {
     }
 
     if (quoted) {
-        throw std::runtime_error("Unterminated quoted CSV field");
+        throw std::runtime_error("Unterminated quoted TSV field");
     }
     fields.push_back(field);
     return fields;
@@ -57,10 +57,10 @@ std::vector<std::string> parseCsvRow(const std::string& line) {
 
 } // namespace
 
-GestureRecognizer::GestureRecognizer(const std::string& csvPath) {
-    std::ifstream file(csvPath);
+GestureRecognizer::GestureRecognizer(const std::string& dataPath) {
+    std::ifstream file(dataPath);
     if (!file) {
-        throw std::runtime_error("Cannot open gesture CSV: " + csvPath);
+        throw std::runtime_error("Cannot open gesture data: " + dataPath);
     }
 
     std::string line;
@@ -80,10 +80,14 @@ GestureRecognizer::GestureRecognizer(const std::string& csvPath) {
             continue;
         }
 
-        const auto fields = parseCsvRow(line);
+        const auto fields = parseTsvRow(line);
+        if (std::all_of(fields.begin(), fields.end(),
+                        [](const std::string& field) { return field.empty(); })) {
+            continue;
+        }
         if (!headerRead) {
             if (fields.size() < 2 || fields[0] != "Gesture" || fields[1] != "inputs") {
-                throw std::runtime_error("Expected CSV header: Gesture,inputs");
+                throw std::runtime_error("Expected tab-delimited header: Gesture\\tinputs");
             }
             headerRead = true;
             continue;
@@ -91,7 +95,7 @@ GestureRecognizer::GestureRecognizer(const std::string& csvPath) {
 
         const auto gesture = std::find(gestureNames.begin(), gestureNames.end(), fields[0]);
         if (gesture == gestureNames.end()) {
-            throw std::runtime_error("Unknown gesture on CSV line " +
+            throw std::runtime_error("Unknown gesture on TSV line " +
                                      std::to_string(lineNumber) + ": " + fields[0]);
         }
 
@@ -105,16 +109,16 @@ GestureRecognizer::GestureRecognizer(const std::string& csvPath) {
             }
         }
         if (!rowHasSamples) {
-            throw std::runtime_error("No samples on CSV line " + std::to_string(lineNumber));
+            throw std::runtime_error("No samples on TSV line " + std::to_string(lineNumber));
         }
         samplesRead = true;
     }
 
     if (file.bad()) {
-        throw std::runtime_error("Failed to read gesture CSV: " + csvPath);
+        throw std::runtime_error("Failed to read gesture data: " + dataPath);
     }
     if (!headerRead || !samplesRead) {
-        throw std::runtime_error("Gesture CSV contains no samples: " + csvPath);
+        throw std::runtime_error("Gesture data contains no samples: " + dataPath);
     }
 }
 
